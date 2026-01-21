@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mechanical Pillar Clock - Final Style</title>
+<style>
+body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #0f0f0f;
+    font-family: system-ui, sans-serif;
+}
+
+.frame {
+    flex: none;
+    width: 799px;
+    height: 530px;
+    background: linear-gradient(to bottom, #fafafa, #908e8e);
+    padding: 60px 70px;
+    border-radius: 30px;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    overflow: visible;          /* IMPORTANT: allow pillars to float */
+}
+
+.column {
+    position: relative;
+    width: 70px;
+    height: 260px;
+    overflow: hidden;
+    z-index: 5;                 /* Bring pillars above base */
+}
+
+/* RECTANGULAR pillar */
+.pillar {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(to bottom, #c5c3c3, #868585);
+    border-radius: 6px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
+    top: 0;
+    transition: top 0.5s cubic-bezier(.4,.0,.2,1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 6;
+}
+
+/* Numbers */
+.num {
+    height: 32px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 22px;
+    color: #5e5c5c;
+    opacity: 0.5;
+    position: relative;
+    z-index: 7;
+}
+
+/* Active number */
+.num.active {
+    opacity: 1;
+    font-weight: 700;
+    color: #5e5c5c;
+    z-index: 10;               /* ALWAYS on top */
+}
+
+/* GLASS LENS (real overlay, not ::before) */
+.lens {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc);
+    box-shadow:
+        inset 0 2px 4px rgba(255,255,255,0.9),
+        inset 0 -3px 6px rgba(0,0,0,0.25),
+        0 6px 14px rgba(0,0,0,0.35);
+    pointer-events: none;
+    z-index: 9;
+}
+
+
+/* Glass lens circle */
+.num.active::before {
+    content: "";
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    background: radial-gradient(circle at 30% 30%, #ffffff, #dcdcdc);
+    border-radius: 50%;
+    box-shadow:
+        inset 0 2px 4px rgba(255,255,255,0.9),
+        inset 0 -3px 6px rgba(0,0,0,0.2),
+        0 4px 10px rgba(0,0,0,0.3);
+    z-index: -1;
+}
+
+.brand {
+    position: absolute;
+    right: 30px;
+    bottom: 20px;
+    font-size: 20px;
+    font-weight: 600;
+    color: rgba(0,0,0,0.35);
+    letter-spacing: 1px;
+    text-shadow:
+        0 1px 0 rgba(255,255,255,0.6),
+        0 -1px 1px rgba(0,0,0,0.15);
+    user-select: none;
+    z-index: 2;
+}
+
+</style>
+</head>
+<body>
+
+<div class="frame">
+    <div class="column" id="h1"></div>
+    <div class="column" id="h2"></div>
+    <div class="column" id="m1"></div>
+    <div class="column" id="m2"></div>
+    <div class="column" id="s1"></div>
+    <div class="column" id="s2"></div>
+    <div class="brand">JAADU💞</div>
+</div>  
+
+<script>
+const digitHeight = 32;
+const columnHeight = 260;
+const centerOffset = (columnHeight / 2) - (digitHeight / 2);
+
+// Constrained digit sets
+const digitSets = {
+    h1: [0,1,2],
+    h2: [0,1,2,3,4,5,6,7,8,9],
+    m1: [0,1,2,3,4,5],
+    m2: [0,1,2,3,4,5,6,7,8,9],
+    s1: [0,1,2,3,4,5],
+    s2: [0,1,2,3,4,5,6,7,8,9],
+};
+
+const currentValues = {
+    h1: 0, h2: 0, m1: 0, m2: 0, s1: 0, s2: 0
+};
+
+const pillars = {};
+
+function createColumn(id) {
+    const col = document.getElementById(id);
+
+    const pillar = document.createElement("div");
+    pillar.className = "pillar";
+
+    digitSets[id].forEach(d => {
+        const n = document.createElement("div");
+        n.className = "num";
+        n.textContent = d;
+        pillar.appendChild(n);
+    });
+
+    col.appendChild(pillar);
+    pillars[id] = pillar;
+}
+
+["h1","h2","m1","m2","s1","s2"].forEach(createColumn);
+
+function indexOfValue(key, value) {
+    return digitSets[key].indexOf(value);
+}
+
+function setActive(key, value) {
+    const pillar = pillars[key];
+    const nums = pillar.children;
+
+    // Remove old active + lens
+    [...nums].forEach(n => n.classList.remove("active"));
+    const oldLens = pillar.querySelector(".lens");
+    if (oldLens) oldLens.remove();
+
+    const idx = indexOfValue(key, value);
+    if (idx < 0) return;
+
+    const activeNum = nums[idx];
+    activeNum.classList.add("active");
+
+    // Create glass lens
+    const lens = document.createElement("div");
+    lens.className = "lens";
+
+    // Position lens exactly over active digit
+    const y = idx * 32 + (32 / 2) - 24; // center lens
+    lens.style.top = `${y}px`;
+
+    pillar.appendChild(lens);
+}
+
+
+function movePillar(key, newValue, isRollover) {
+    const pillar = pillars[key];
+    const idx = indexOfValue(key, newValue);
+    const finalTop = centerOffset - idx * digitHeight;
+
+    if (isRollover) {
+        // Fall from top
+        pillar.style.transition = "none";
+        pillar.style.top = `-${columnHeight}px`;
+
+        pillar.offsetHeight;
+
+        pillar.style.transition = "top 0.7s cubic-bezier(.2,.8,.3,1)";
+        pillar.style.top = `${finalTop}px`;
+    } else {
+        // Smooth slide
+        pillar.style.transition = "top 0.5s cubic-bezier(.4,.0,.2,1)";
+        pillar.style.top = `${finalTop}px`;
+    }
+}
+
+function updateColumn(key, newValue) {
+    const oldValue = currentValues[key];
+    const oldIndex = indexOfValue(key, oldValue);
+    const newIndex = indexOfValue(key, newValue);
+
+    const isLast = oldIndex === digitSets[key].length - 1;
+    const isFirst = newIndex === 0;
+    const rollover = isLast && isFirst;
+
+    movePillar(key, newValue, rollover);
+    currentValues[key] = newValue;
+    setTimeout(() => setActive(key, newValue), 150);
+}
+
+function updateClock() {
+    const now = new Date();
+
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const s = now.getSeconds();
+
+    const values = {
+        h1: Math.floor(h / 10),
+        h2: h % 10,
+        m1: Math.floor(m / 10),
+        m2: m % 10,
+        s1: Math.floor(s / 10),
+        s2: s % 10,
+    };
+
+    for (const key in values) {
+        if (values[key] !== currentValues[key]) {
+            updateColumn(key, values[key]);
+        }
+    }
+}
+
+// Initial positioning
+updateClock();
+for (const key in pillars) {
+    const idx = indexOfValue(key, currentValues[key]);
+    const top = centerOffset - idx * digitHeight;
+    pillars[key].style.transition = "none";
+    pillars[key].style.top = `${top}px`;
+    setActive(key, currentValues[key]);
+}
+
+setInterval(updateClock, 1000);
+</script>
+
+</body>
+</html>
